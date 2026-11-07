@@ -1,9 +1,15 @@
 # TB Research Assistant
 
-A domain-specific LLM research assistant for tuberculosis (TB) research. The goal: a model that
-can help TB researchers interpret experimental results,
-critique methodology, prioritize targets, and generate hypotheses, grounded in real TB/*Mycobacterium
-tuberculosis* literature rather than general biomedical knowledge.
+**One of the first LLMs built specifically for tuberculosis research** — not a general medical
+chatbot with TB facts bolted on, but a model fine-tuned end-to-end on TB/*Mycobacterium
+tuberculosis* science to think *with* researchers, not just answer at them.
+
+Every published domain-adapted biomedical LLM this project was benchmarked against (BioMistral,
+DeFineMed, BioInstruct, MediMind) targets general biomedicine. This one doesn't — it's built to
+sit next to a TB researcher and do the parts of the job that take real scientific reasoning:
+reading an experimental result and saying what it actually means, pressure-testing a methodology
+before it goes any further, and helping prioritize what to try next — grounded in the TB
+literature itself, not generic medical trivia.
 
 This is a curated showcase of the project for people outside the lab. The full research
 repo (every experiment, every SLURM script, every intermediate result) lives at
@@ -21,13 +27,16 @@ Want to try the live model? Reach out and I'll send you a link.
 
 ## What it can do
 
-- **Answers TB-specific research questions** from domain knowledge gained through continued
-  pretraining on TB/*Mycobacterium tuberculosis* literature — not just general biomedical facts
-  a generic model would already know.
-- **Interprets experimental results, critiques methodology, and generates hypotheses** — the model
-  was fine-tuned specifically on these research-assistant tasks, not just factual Q&A.
-- **Grounds answers in the literature** via a retrieval-augmented generation (RAG) layer, citing
-  the specific source passages it pulled from.
+The deployed model is `Llama-3.1-8B-Instruct` fine-tuned with QLoRA on TB-specific instruction
+data — no continued pretraining and no retrieval in the final pipeline (both were built and
+evaluated, see below, but a straightforward fine-tune on the Instruct base turned out to beat
+both in evaluation, so that's what's actually running).
+
+- **Reasons through TB research problems**, not just factual lookups: interpreting what an
+  experimental result actually means, critiquing a methodology before it goes further, prioritizing
+  a target, or generating a testable hypothesis.
+- **Answers TB-specific research questions** using TB knowledge and interaction style learned
+  during fine-tuning on TB consultation-style instruction data.
 - **Runs as a real, self-hosted chat app** (`chat_ui.py`) — no external LLM API in the loop for
   generation, served from a single GPU.
 
@@ -43,34 +52,41 @@ Example:
 
 ## How it's built
 
+The deployed model is just the last step below — fine-tuning directly on the Instruct base. The
+earlier stages (continued pretraining, merging, retrieval) were built and evaluated as candidates
+for improving on that, not skipped out of laziness: each was run head-to-head against plain
+fine-tuning on the same held-out evaluation set, and plain fine-tuning won, so it's what's deployed.
+
 ```mermaid
 flowchart LR
-    A["TB literature corpus\n(EuropePMC, Mtb-specific,\ncontamination-controlled)"] --> B["Continued Pretraining\n(CPT, QLoRA)"]
-    B --> C["SLERP Merge\n(CPT + Instruct)"]
-    C --> D["Supervised Fine-Tuning\n(QLoRA SFT on TB\nconsultation-style data)"]
-    D --> E["Fine-tuned research\nassistant LLM"]
-    E --> F["RAG layer\n(retrieval + reranking)"]
-    F --> G["Chat UI"]
-    A -.indexed for retrieval.-> F
+    A["TB literature corpus\n(EuropePMC, Mtb-specific,\ncontamination-controlled)"] -.used to build\nthe eval set &\nexplored stages.-> X
+    I["Llama-3.1-8B-Instruct"] --> D["Supervised Fine-Tuning\n(QLoRA SFT on TB\nconsultation-style data)"]
+    D --> E["Fine-tuned research\nassistant LLM - DEPLOYED"]
+    E --> G["Chat UI"]
+    subgraph X["Explored, evaluated, not deployed"]
+        B["Continued Pretraining (CPT)"] --> C["SLERP Merge\n(CPT + Instruct)"]
+        F["RAG layer\n(retrieval + reranking)"]
+    end
 ```
 
 1. **Corpus construction** — TB/Mtb-specific research literature fetched from EuropePMC, restricted
    to papers that genuinely discuss TB in the title/abstract. Contamination-controlled: built only
    from papers published after the base model's pretraining cutoff, so continued pretraining can't
-   re-expose the model to memorized text, and the held-out evaluation set is guaranteed unseen.
-2. **Continued pretraining (CPT)** — further pretraining on the TB corpus to inject domain
-   knowledge. Several CPT recipes were compared on the same corpus, including replications of two
-   published domain-adaptation setups (Doll et al. 2026's DeFineMed, Labrak et al. 2024's BioMistral).
-3. **Model merging (SLERP)** — CPT on raw text degrades instruction-following. SLERP merging
-   between the CPT checkpoint and the original Instruct model recovers most of that ability while
-   keeping the domain knowledge gained during CPT.
-4. **Supervised fine-tuning (QLoRA SFT)** — fine-tuning on TB-specific instruction data
-   (consultation-style Q&A, methodology critique, hypothesis generation, result interpretation)
-   to turn the knowledge-adapted model into something that follows a research-assistant interaction
-   style.
-5. **Retrieval-augmented generation (RAG)** — retrieves relevant passages from the TB corpus at
-   query time instead of relying purely on parametric knowledge. Three retrieval backends were
-   built and compared head-to-head.
+   re-expose the model to memorized text, and the held-out evaluation set is guaranteed unseen. Used
+   both to build the fine-tuning data and as the corpus for the RAG experiments below.
+2. **Supervised fine-tuning (QLoRA SFT)** — fine-tuning `Llama-3.1-8B-Instruct` directly on
+   TB-specific instruction data (consultation-style Q&A, methodology critique, hypothesis
+   generation, result interpretation). **This is the deployed model.**
+3. *Explored, evaluated, not deployed:* **continued pretraining (CPT)** on the TB corpus before
+   fine-tuning, including replications of two published domain-adaptation setups (Doll et al.
+   2026's DeFineMed, Labrak et al. 2024's BioMistral), each followed by a **SLERP merge** back
+   into the Instruct model to recover instruction-following lost during CPT. None beat plain
+   fine-tuning on the evaluation set.
+4. *Explored, evaluated, not deployed:* **retrieval-augmented generation (RAG)** — three retrieval
+   backends were built and compared, grounding answers in retrieved corpus passages at query time
+   instead of relying purely on the fine-tuned model's own knowledge. Only one of the three showed
+   a measurable improvement over the plain fine-tuned model, and it's not currently wired into the
+   deployed chat app.
 
 ## What's in `core/`
 
