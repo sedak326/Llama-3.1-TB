@@ -19,7 +19,29 @@ repo (every experiment, every SLURM script, every intermediate result) lives at
 
 Want to try the live model? Reach out and I'll send you a link.
 
-## The pipeline
+## What it can do
+
+- **Answers TB-specific research questions** from domain knowledge gained through continued
+  pretraining on TB/*Mycobacterium tuberculosis* literature — not just general biomedical facts
+  a generic model would already know.
+- **Interprets experimental results, critiques methodology, and generates hypotheses** — the model
+  was fine-tuned specifically on these research-assistant tasks, not just factual Q&A.
+- **Grounds answers in the literature** via a retrieval-augmented generation (RAG) layer, citing
+  the specific source passages it pulled from.
+- **Runs as a real, self-hosted chat app** (`chat_ui.py`) — no external LLM API in the loop for
+  generation, served from a single GPU.
+
+Example:
+
+> **Q: What is ESAT-6?**
+>
+> ESAT-6, or Early Secreted Antigen 6, is a protein secreted by *Mycobacterium tuberculosis*, a
+> bacterium that causes tuberculosis. It is a key virulence factor, meaning it plays a crucial
+> role in the pathogenesis of TB. ESAT-6 is involved in the evasion of the host immune response,
+> allowing the bacteria to survive and replicate within the host. It is secreted by the ESX-1
+> secretion system, a type VII secretion system essential for the virulence of *M. tuberculosis*...
+
+## How it's built
 
 ```mermaid
 flowchart LR
@@ -49,26 +71,6 @@ flowchart LR
 5. **Retrieval-augmented generation (RAG)** — retrieves relevant passages from the TB corpus at
    query time instead of relying purely on parametric knowledge. Three retrieval backends were
    built and compared head-to-head.
-
-## Key finding: domain knowledge and reasoning are separate levers
-
-Across every domain-adaptation method tested — continued pretraining, supervised fine-tuning, and
-retrieval-augmentation — accuracy gains concentrated in knowledge-recall-type questions, while
-reasoning/analysis-type questions stayed comparatively flat. RAG showed the mirror image: retrieved
-context sometimes *helped* recall-type questions but *hurt* accuracy on reasoning-heavy ones,
-consistent with retrieved context diluting the actual reasoning task rather than aiding it.
-
-The suggested takeaway: **injecting domain knowledge (via pretraining or retrieval) is not the
-same lever as improving reasoning ability** — a model can get measurably better at TB facts without
-getting any better at reasoning over them.
-
-This held up as a consistent trend across independent evaluation conditions. To check how much of
-it survives rigorous statistical scrutiny — important with ~90 comparisons run against the same
-eval set — a full significance-testing pipeline was built: paired t-tests, an exact McNemar test as
-a robustness check, paper-level cluster-bootstrap confidence intervals, and Bonferroni/Holm/
-Benjamini-Hochberg correction for multiple comparisons under several reasonable definitions of the
-comparison "family." Being upfront about which individual results survive correction and which
-don't, rather than reporting only the uncorrected p-values, was a deliberate choice.
 
 ## What's in `core/`
 
