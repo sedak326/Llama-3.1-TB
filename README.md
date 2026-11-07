@@ -1,7 +1,7 @@
 # TB Research Assistant
 
-A domain-specific LLM research assistant for tuberculosis (TB) research — built as a Master's
-thesis project. The goal: a model that can help TB researchers interpret experimental results,
+A domain-specific LLM research assistant for tuberculosis (TB) research. The goal: a model that
+can help TB researchers interpret experimental results,
 critique methodology, prioritize targets, and generate hypotheses, grounded in real TB/*Mycobacterium
 tuberculosis* literature rather than general biomedical knowledge.
 
@@ -93,4 +93,4 @@ GPT-4o as an automated judge for explanation quality · SLURM for cluster schedu
 
 ## Author
 
-**Seda Kavlak** — Master's thesis project, Jinich Lab, UC San Diego. Advised by Prof. Jinich.
+**Seda Kavlak** — Jinich Lab, UC San Diego. Advised by Prof. Jinich.
