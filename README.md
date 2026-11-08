@@ -112,9 +112,33 @@ The results suggest that fine-tuning on literature-grounded scientific instructi
 The longer-term goal is to develop a practical research tool that helps scientists make sense of existing findings and explore new questions.
 
 <br>
-### Model Availability
+### Run it yourself
 
-We are currently working toward the public release of Llama-3.1-TB. In the meantime, researchers interested in testing the model can clone this repository or contact me to request access.
+Needs a CUDA GPU with ~8GB+ VRAM (the model runs 4-bit quantized) and a free Hugging Face
+account.
+
+```bash
+git clone https://github.com/sedak326/Llama-3.1-TB.git
+cd Llama-3.1-TB
+pip install -r requirements.txt
+```
+
+1. Accept the [Llama 3.1 license](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct) on
+   Hugging Face (one click, instant approval).
+2. Log in so the base model can download: `huggingface-cli login` (or set `$HF_TOKEN`).
+3. Run it:
+   ```bash
+   cd core
+   python chat_ui.py --no-rag --host 127.0.0.1 --port 8891
+   ```
+4. Open `http://127.0.0.1:8891`.
+
+The fine-tuned LoRA adapter (~335MB) downloads automatically on first run from
+[kvlkS/tb-research-assistant-lora](https://huggingface.co/kvlkS/tb-research-assistant-lora) —
+no manual weight download, no RAG/vector-store setup needed for this (deployed) configuration.
+
+Exposing it beyond localhost? Pass `--host 0.0.0.0` and set `--auth-user`/`--auth-pass`
+(or `$TB_UI_USER`/`$TB_UI_PASS`) to put it behind HTTP Basic Auth first.
 
 ## References
 

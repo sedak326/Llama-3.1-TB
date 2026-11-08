@@ -18,10 +18,12 @@ from pathlib import Path
 from typing import Optional
 
 import torch
-from langchain_chroma import Chroma
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-from build_index import LocalSentenceTransformerEmbeddings, CHROMA_PERSIST_DIR, COLLECTION_NAME, EMBEDDING_MODEL
+try:
+    from langchain_chroma import Chroma
+except ImportError:
+    Chroma = None  # only needed for RAG mode; --no-rag (the deployed config) works without it
 
 RAG_TOP_K = 8
 
@@ -91,6 +93,11 @@ _tokenizer = None
 def load_vectorstore() -> Chroma:
     global _vectorstore
     if _vectorstore is None:
+        # Lazy import: build_index.py (and its Chroma/sentence-transformers deps)
+        # isn't part of this showcase repo's core/ sample - only needed if you
+        # wire up the RAG path yourself. --no-rag (the deployed config) never
+        # calls this function.
+        from build_index import LocalSentenceTransformerEmbeddings, CHROMA_PERSIST_DIR, COLLECTION_NAME, EMBEDDING_MODEL
         embeddings = LocalSentenceTransformerEmbeddings(EMBEDDING_MODEL)
         _vectorstore = Chroma(
             persist_directory=str(CHROMA_PERSIST_DIR),
