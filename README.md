@@ -1,144 +1,118 @@
-# Llama-3.1-TB: A Research Assistant for Tuberculosis Science
+# Llama-3.1-TB
+### An AI Research Assistant for Tuberculosis Scientists
 
-**A fine-tuned, self-hosted 8B language model that helps TB researchers interpret experimental results, critique methodology, and generate testable hypotheses.**
-
-Built on `Llama-3.1-8B-Instruct` with QLoRA, trained on 100K+ instruction examples grounded in 27,000+ TB research papers, and evaluated head-to-head against continued pre-training, model merging, and retrieval-augmented generation (RAG). Runs on a single GPU with no external LLM API in the loop.
-
-This is a curated showcase for people outside the lab. The full research repo (every experiment, SLURM script, and intermediate result) is at [sedak326/tuberculosis_agent](https://github.com/sedak326/tuberculosis_agent). The full write-up is my master's thesis: [Thesis PDF](#) *(add link)*.
-
-## Try it
-
-<!-- Live demo link: ask me and I'll have it running within a few minutes - it runs on a
-     shared university GPU cluster, not kept on 24/7, so I spin it up on request rather than
-     leave a link here that silently goes stale. -->
-<!-- TODO: record a short demo (asking it a factual question, a methodology critique, and a
-     hypothesis-generation prompt) and add it here: ![demo](demo.gif) -->
-
-The model runs on a shared university GPU cluster, so it isn't up 24/7. Reach out and I'll spin it up and send you a link.
-
-## What it does
-
-The assistant is built to sit next to a TB researcher and help with scientific reasoning, not only factual lookup:
-
-- **Interprets results:** what does this experimental outcome actually imply?
-- **Critiques methodology:** where might this approach be weak, before more time is invested?
-- **Generates hypotheses:** what is a plausible, testable explanation for an observation?
-- **Guides literature thinking:** points toward the right conceptual framing and relevant research directions.
-
-> **Q: What is ESAT-6?**
+> *"A time when 'just google it' is no longer enough."*
 >
-> ESAT-6, or Early Secreted Antigen 6, is a protein secreted by *Mycobacterium tuberculosis*, a
-> bacterium that causes tuberculosis. It is a key virulence factor, meaning it plays a crucial
-> role in the pathogenesis of TB. ESAT-6 is involved in the evasion of the host immune response,
-> allowing the bacteria to survive and replicate within the host. It is secreted by the ESX-1
-> secretion system, a type VII secretion system essential for the virulence of *M. tuberculosis*...
+> — Gusenbauer, *The Age of Abundant Scholarly Information and Its Synthesis* (2021) [1]
 
-It is served through a self-hosted Flask chat app (`chat_ui.py`).
+## The problem: Too much research, not enough connection
 
-## Why this is needed
+Tuberculosis remains one of the deadliest infectious diseases worldwide. In 2023 alone, an estimated 10.8 million people developed TB, and 1.25 million died [2].
 
-Tuberculosis is the deadliest infectious disease in the world. *M. tuberculosis* biology is complex, and the knowledge needed to understand it is spread across tens of thousands of papers, databases, and subfields.
+At the same time, TB is an extensively studied disease. More than **263,000 TB-related articles** were published between 1849 and 2020 [3], and output has kept rising each year [4]. This research spans epidemiology, fundamental research, diagnostics, treatment, vaccines, and public health [5].
 
-> *An estimated 10.8 million people developed TB in 2023, and 1.25 million died.* (Lee et al., 2025, summarizing the WHO Global Tuberculosis Report 2024)
+The problem isn't a lack of research. It's that relevant knowledge is scattered across thousands of papers and specialized resources [6], making it difficult to find, compare, and connect findings.
 
-> *263,234 TB articles were published between 1849 and 2020, and output has kept rising every year.* (Ekenoğlu Merdan & Etiz, 2022; Kshtriya et al., 2026)
+This is the problem **Llama-3.1-TB** aims to address.
 
-> *TB research spans epidemiology, basic science, diagnostics, treatment, vaccines, and public health, across many countries.* (Nafade et al., 2018)
+## The solution: A research assistant built for TB
 
-The bottleneck is no longer access to papers. It is finding, weighing, and combining what is in them:
+Llama-3.1-TB is an 8-billion-parameter language model fine-tuned on tuberculosis research literature.
 
-> *Evidence-synthesis studies grew roughly sixfold from 2008 to 2020, and by 2020 researchers had to screen about twice as many records to find the relevant ones.* (Gusenbauer, 2021, whose title argues that "just google it" is no longer enough)
+Instead of working through papers one by one, researchers can ask questions in natural language and use the assistant to:
 
-> *Synthesizing the scientific literature is central to identifying new directions, refining methods, and supporting evidence-based decisions.* (Asai et al., *Nature*, 2026)
+- **Interpret experimental results** and explore possible biological explanations.
+- **Critically assess methods** and identify potential limitations.
+- **Understand biological mechanisms** involving TB genes, proteins, and pathways.
+- **Explore hypotheses** and possible directions for further experiments.
 
-Mtb-specific knowledge is also fragmented across resources, from transposon-sequencing databases to curated resistance catalogs and knowledge graphs (Jinich et al., 2025; Dai et al., 2019; Lose et al., 2020; Reddy et al., 2009).
+The aim is not to replace scientific judgment or literature review, but to make it easier to work through complex research questions.
 
-**The problem this project addresses:** a TB researcher should be able to ask a scientific question in natural language and get a useful, expert-style answer, from a model small enough to run on lab hardware and trained on the literature they actually work with.
+## How it works
 
-## How I built it
+The model was developed in three main stages:
 
-```mermaid
-flowchart LR
-    A["TB literature corpus\n27,437 papers\n489,423 chunks (~173M tokens)"] --> B["Synthetic instruction data\n100,536 examples\n(Llama-3.3-70B + 50 expert seeds)"]
-    B --> C["QLoRA SFT on\nLlama-3.1-8B-Instruct"]
-    C --> D["Llama-3.1-TB\nDEPLOYED"]
-    D --> E["Chat UI"]
-    A -.held-out papers.-> F["e-MCQA evaluation\n(960 questions, GPT-4o judge)"]
-    subgraph X["Explored, evaluated, not deployed"]
-        G["Continued pretraining + SLERP merge"]
-        H["RAG (3 retrieval backends)"]
-    end
-    C -.compared against.-> X
-    F -.scores.-> D
-```
+**1. Literature collection**
 
-1. **Corpus.** Full-text articles from PubMed Central and Europe PMC, plus additional collected sources, deduplicated to 27,437 documents. Documents are split along native section structure (JATS/XML tags, or typographic cues for PDFs) into 489,423 chunks of at most 4,000 characters, each with source metadata.
-2. **Instruction data.** Members of the Jinich Lab wrote 50 seed examples (a persona, a realistic researcher question, and an expert-style answer). Using these as few-shot demonstrations, Llama-3.3-70B-Instruct generated 100,536 instruction/response pairs grounded in sampled literature chunks, following the BioInstruct approach.
-3. **Fine-tuning.** QLoRA (4-bit NF4, LoRA rank 64, alpha 128, 2 epochs, response-only loss) on Llama-3.1-8B-Instruct. I compared my configuration against two published recipes (Labrak et al. 2024; Hashemi et al. 2025).
-4. **Alternatives I tested.** Continued pre-training on the full corpus (replicating Doll et al. 2026 and Labrak et al. 2024, plus a custom recipe) with SLERP merging, and three RAG pipelines (a custom one, one replicating Hashemi et al., and a cross-encoder reranking pipeline after Bal & Puhan 2026).
-5. **Evaluation.** An explanation-based multiple-choice benchmark (e-MCQA): 960 questions generated from 200 held-out papers never seen in training. Each model picks an answer and explains it, and GPT-4o scores answer accuracy plus factual accuracy, coherence, naturalness, and completeness. Significance is tested with paired t-tests matched by question.
+27,437 TB research papers were collected and processed into 489,423 text chunks (approximately 173 million tokens).
 
-## Results
+**2. Instruction generation**
 
-On the primary benchmark (n = 960), a plain QLoRA fine-tune beat everything else I tried:
+TB experts at the Jinich Lab created 50 seed examples of realistic scientific questions and expert responses. Following the BioInstruct approach [9], these were used to guide Llama-3.3-70B in generating 100,536 literature-grounded instruction–response pairs, which formed the training dataset for fine-tuning.
 
-| Model | Accuracy | Penalized accuracy | Factual (1-5) |
-|---|---|---|---|
-| Llama-3.1-8B-Instruct (base) | 0.770 | 0.658 | 4.740 |
-| **SFT-3 (deployed)** | **0.806** | **0.710** | **4.804** |
-| CPT + SFT (best variant) | 0.793 | 0.690 | 4.818 |
-| SFT-3 + RAG (best variant) | 0.716 | 0.575 | 4.705 |
+**3. Fine-tuning**
 
-SFT-3 significantly improved penalized accuracy (p = 0.0057), factual accuracy, coherence, and naturalness over the base model, with no significant drop in completeness. It was the only configuration to do so. Penalized accuracy scores +1 for a correct answer, -0.5 for a wrong one, and 0 for no answer, to discourage guessing.
+Llama-3.1-8B-Instruct [7] was fine-tuned using QLoRA [8] to produce a TB-specialized model that can run locally on a single GPU.
 
-**What didn't work, and why that matters:**
+I also explored continued pretraining [10, 12] and several retrieval-augmented generation (RAG) approaches [11, 13], including replications of published recipes, to compare different methods of domain adaptation.
 
-- **Continued pre-training** gave no significant accuracy gain on its own and no benefit on top of SFT. My corpus (~173M tokens) is roughly 17x smaller than the smallest corpus in the CPT studies I replicated.
-- **RAG lowered performance** on the primary reasoning benchmark in all three configurations (penalized accuracy dropped 13.5-15.6 points). My interpretation is that the SFT model was already well adapted to these tasks, so retrieved passages acted more like distraction than help, though I did not evaluate retrieval quality separately.
-- **The picture changes for recall-style questions.** On a supplementary knowledge-recall set (n = 800), all three CPT variants scored higher than the base model, and the reranking RAG pipeline significantly improved over SFT alone (penalized accuracy 0.829 to 0.885, p < 0.01). So these methods may suit factual lookup better than scientific reasoning.
+## Evaluation: Does specialization improve performance?
 
-I ship the simplest approach that wins on the task I actually care about (research reasoning), and the thesis documents the rest.
+The models were evaluated on **960 questions from 200 held-out TB research papers**, using an explanation-based multiple-choice benchmark.
 
-## Limitations
+| Model | Accuracy | Penalized accuracy |
+|---|---:|---:|
+| Base Llama-3.1-8B | 77.0% | 65.8% |
+| **Llama-3.1-TB** | **80.6%** | **71.0%** |
+| Continued pretraining + SFT | 79.3% | 69.0% |
+| SFT + RAG | 71.6% | 57.5% |
 
-- The evaluation set is synthetic, generated with a pipeline similar to the one that produced the training data, which may favor instruction-tuned models.
-- GPT-4o is the judge, not human domain experts, and LLM judges can have systematic biases.
-- Multiple-choice evaluation only partly captures what a research assistant does. Evaluation with TB researchers on real tasks is the next step.
-- Three configurations were tested per method, on a single base model.
+Compared with the base model, **Llama-3.1-TB improved answer accuracy by 3.6 percentage points and penalized accuracy by 5.2 percentage points** (p = 0.0057 for penalized accuracy).
 
-## What's in `core/`
+It also showed statistically significant improvements in factual accuracy, coherence, and naturalness.
 
-A representative sample from each pipeline stage (the full set of experiment scripts, SLURM job configs, and ablations is in the [full repo](https://github.com/sedak326/tuberculosis_agent)):
+Interestingly, the simpler supervised fine-tuning approach performed better on this benchmark than the more complex methods I tested. Continued pretraining offered no clear additional benefit, while RAG reduced performance on the primary reasoning benchmark.
 
-| File | Stage |
-|---|---|
-| `train_cpt.py` | Continued pretraining (QLoRA) |
-| `train_sft.py` | Supervised fine-tuning (QLoRA) |
-| `merge_configs/v5_cpt_instruct_slerp.yaml` | SLERP merge recipe |
-| `rag_pipeline.py` | Retrieval + generation pipeline |
-| `chat_ui.py` | Self-hosted chat UI (Flask) serving the fine-tuned model |
-| `evaluate_emcqa.py` | Evaluation: inference over the held-out MCQ set |
-| `generate_mcq.py` | Builds the held-out multiple-choice evaluation set |
+The evaluation used synthetic questions and an automated LLM judge (GPT-4o), so testing with TB researchers on real research tasks remains an important next step.
 
-## Stack
+## Why it matters
 
-Llama-3.1-8B-Instruct · Llama-3.3-70B-Instruct (synthetic data generation) · QLoRA (PEFT + bitsandbytes) · FSDP · `mergekit` (SLERP) · LangChain + ChromaDB / FAISS (RAG) · S-PubMedBert, jina-embeddings-v3, OpenAI embeddings · Flask · GPT-4o (automated judge and MCQ construction) · SLURM
+This project explores whether a relatively small, domain-specific language model can help researchers work with specialized scientific knowledge without requiring large-scale training or external inference APIs.
+
+The results suggest that fine-tuning on literature-grounded scientific instructions can improve a general-purpose model's performance on TB-specific questions.
+
+The longer-term goal is to develop a practical research tool that helps scientists make sense of existing findings and explore new questions.
+
+**[View the research on GitHub](https://github.com/sedak326/tuberculosis_agent)**
+
+---
 
 ## References
 
-Papers cited in "Why this is needed":
+### Scientific motivation
 
-- Lee H, et al. Review of the Global Burden of Tuberculosis in 2023: Insights from the WHO Global Tuberculosis Report 2024. *Public Health Weekly Report*, 2025.
-- Ekenoğlu Merdan Y, Etiz P. A Scopus-Based Bibliometric Analysis of Global Tuberculosis Publications: 1849-2020. *Turkish Thoracic Journal*, 2022.
-- Kshtriya P, et al. Global Tuberculosis Research Landscape: A Comprehensive Bibliometric Analysis of PubMed Literature (2017-2024). *The International Information & Library Review*, 2026.
-- Nafade V, et al. A bibliometric analysis of tuberculosis research, 2007-2016. *PLoS ONE*, 2018.
-- Gusenbauer M. The age of abundant scholarly information and its synthesis: A time when "just google it" is no longer enough. *Research Synthesis Methods*, 2021.
-- Asai A, et al. Synthesizing scientific literature with retrieval-augmented language models. *Nature*, 2026.
-- Jinich A, et al. The *Mycobacterium tuberculosis* Transposon Sequencing Database (MtbTnDB). *Molecular Microbiology*, 2025.
-- Dai E, et al. MycoResistance: a curated resource of drug resistance molecules in Mycobacteria. *Database*, 2019.
-- Lose T, et al. COMBAT-TB-NeoDB: fostering tuberculosis research through integrative analysis using graph database technologies. *Bioinformatics*, 2020.
-- Reddy TBK, et al. TB database: an integrated platform for tuberculosis research. *Nucleic Acids Research*, 2009.
+1. Gusenbauer M. The age of abundant scholarly information and its synthesis: A time when "just google it" is no longer enough. *Research Synthesis Methods*. 2021;12(6):684–691. https://doi.org/10.1002/jrsm.1520
 
-## Author
+2. Lee H, Kim J, Kim J, Park YJ. Review of the Global Burden of Tuberculosis in 2023: Insights from the WHO Global Tuberculosis Report 2024. *Public Health Weekly Report*. 2025;18(11 Suppl):S55–S69. https://doi.org/10.56786/PHWR.2025.18.11suppl.5
 
-**Seda Kavlak**, M.Sc. Bioinformatics (University of Potsdam). Research conducted at the Jinich Lab, UC San Diego, advised by Prof. Adrian Jinich.
+3. Ekenoğlu Merdan Y, Etiz P. A Scopus-Based Bibliometric Analysis of Global Tuberculosis Publications: 1849–2020. *Turkish Thoracic Journal*. 2022;23(3):246–256. https://doi.org/10.5152/TurkThoracJ.2022.21284
+
+4. Kshtriya P, Prajapati A, Chakraborty M, Ganguly P. Global Tuberculosis Research Landscape: A Comprehensive Bibliometric Analysis of PubMed Literature (2017–2024). *The International Information & Library Review*. 2026;58(2):175–195. https://doi.org/10.1080/10572317.2026.2631197
+
+5. Nafade V, Nash M, Huddart S, Pande T, Gebreselassie N, Lienhardt C, et al. A bibliometric analysis of tuberculosis research, 2007–2016. *PLoS ONE*. 2018;13(6):e0199706. https://doi.org/10.1371/journal.pone.0199706
+
+6. Jinich A, Zaveri A, DeJesus MA, Spencer A, Almada-Monter R, Flores-Bautista E, et al. The *Mycobacterium tuberculosis* Transposon Sequencing Database (MtbTnDB): A Large-Scale Guide to Genetic Conditional Essentiality. *Molecular Microbiology*. 2025;124(1):91–101. https://doi.org/10.1111/mmi.15370
+
+### Methods and related work
+
+7. Grattafiori A, Dubey A, Jauhri A, et al. The Llama 3 Herd of Models. 2024. https://arxiv.org/abs/2407.21783
+
+8. Dettmers T, Pagnoni A, Holtzman A, Zettlemoyer L. QLoRA: Efficient Finetuning of Quantized LLMs. *Advances in Neural Information Processing Systems*. 2023;36:10088–10115.
+
+9. Tran H, Yang Z, Yao Z, Yu H. BioInstruct: Instruction Tuning of Large Language Models for Biomedical Natural Language Processing. 2024. https://arxiv.org/abs/2310.19975
+
+10. Labrak Y, Bazoge A, Morin E, Gourraud PA, Rouvier M, Dufour R. BioMistral: A Collection of Open-Source Pretrained Large Language Models for Medical Domains. *Findings of the Association for Computational Linguistics: ACL 2024*. 2024:5848–5864. https://doi.org/10.18653/v1/2024.findings-acl.348
+
+11. Hashemi SMH, Kashani HB, Fatemi S. MediMind: A Domain-Adaptive Medical LLM Leveraging Fine-Tuning and Retrieval-Augmented Generation. *2025 9th International Conference on Internet of Things and Applications (IoT)*. 2025:1–6. https://doi.org/10.1109/IoT69654.2025.11297589
+
+12. Doll N, Buschhoff JS, Satheesh S, Abdelwahab H, Allende-Cid H, Klug K. Can Continual Pre-training Bridge the Performance Gap between General-purpose and Specialized Language Models in the Medical Domain? 2026. https://arxiv.org/abs/2604.19394
+
+13. Bal DP, Puhan S. Benchmarking Retrieval Strategies for Biomedical Retrieval-Augmented Generation: A Controlled Empirical Study. 2026. https://arxiv.org/abs/2605.02520
+
+---
+
+**Seda Kavlak**
+
+M.Sc. Bioinformatics, University of Potsdam
+
+Research conducted at the Jinich Lab, UC San Diego, advised by Prof. Adrian Jinich.
