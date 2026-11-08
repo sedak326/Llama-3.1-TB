@@ -120,8 +120,15 @@ account.
 ```bash
 git clone https://github.com/sedak326/Llama-3.1-TB.git
 cd Llama-3.1-TB
+python -m venv .venv && source .venv/bin/activate   # use a dedicated env, not one shared with other ML projects
 pip install -r requirements.txt
 ```
+
+> If you install into an existing environment that already has `torch`/`torchvision` for something
+> else (e.g. `vllm`), pip may downgrade `torch` without updating `torchvision` to match, which
+> crashes `transformers` on import with `RuntimeError: operator torchvision::nms does not exist`.
+> Fix: `pip uninstall -y torchvision torchaudio` (this app does no image processing, so it needs
+> neither) — or just use a dedicated virtualenv/conda env as above to avoid the collision entirely.
 
 1. Accept the [Llama 3.1 license](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct) on
    Hugging Face (one click, instant approval).
