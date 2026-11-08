@@ -15,13 +15,11 @@
 
 ---
 
-## The problem: Too much research, not enough connection
-
 Tuberculosis remains one of the deadliest infectious diseases worldwide. In 2023 alone, an estimated 10.8 million people developed TB, and 1.25 million died [2].
 
 At the same time, TB is an extensively studied disease. More than **263,000 TB-related articles** were published between 1849 and 2020 [3], and output has kept rising each year [4]. This research spans epidemiology, fundamental research, diagnostics, treatment, vaccines, and public health [5].
 
-The problem isn't a lack of research. It's that relevant knowledge is scattered across thousands of papers and specialized resources [6], making it difficult to find, compare, and connect findings.
+Therefore, the problem isn't a lack of research but that relevant knowledge is scattered across thousands of papers and specialized resources [6], making it difficult to find, compare, and connect findings.
 
 **This is the problem Llama-3.1-TB aims to address.**
 
@@ -101,17 +99,11 @@ xychart-beta
 
 Compared with the base model, **Llama-3.1-TB improved answer accuracy by 3.6 percentage points and penalized accuracy by 5.2 percentage points** (p = 0.0057 for penalized accuracy).
 
-It also showed statistically significant improvements in factual accuracy, coherence, and naturalness.
+It also showed statistically significant improvements in factual accuracy, coherence, and naturalness in the generation style.
 
 Interestingly, the simpler supervised fine-tuning approach performed better on this benchmark than the more complex methods I tested. Continued pretraining offered no clear additional benefit, while RAG reduced performance on the primary reasoning benchmark.
 
-### Evaluation limitations
-
-The evaluation used synthetic questions and an automated LLM judge (GPT-4o), so testing with TB researchers on real research tasks remains an important next step.
-
 <br>
-
-## Why it matters
 
 This project explores whether a relatively small, domain-specific language model can help researchers work with specialized scientific knowledge without requiring large-scale training or external inference APIs.
 
@@ -120,8 +112,9 @@ The results suggest that fine-tuning on literature-grounded scientific instructi
 The longer-term goal is to develop a practical research tool that helps scientists make sense of existing findings and explore new questions.
 
 <br>
+### Model Availability
 
----
+We are currently working toward the public release of Llama-3.1-TB. In the meantime, researchers interested in testing the model can clone this repository or contact me to request access.
 
 ## References
 
