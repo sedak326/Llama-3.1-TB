@@ -85,6 +85,29 @@ def _chitchat_reply(question: str) -> Optional[str]:
     return _CHITCHAT_REPLY if _CHITCHAT_PATTERN.match(question.strip()) else None
 
 
+# Repeated right before generation starts (not just in the system prompt): the
+# SFT style otherwise dominates and the model falls back to one dense paragraph
+# regardless of the system prompt's formatting instructions. The second half
+# (vague/no-topic requests) is a partial mitigation, not a full fix, for the
+# same root cause as the chitchat case above: SFT-3 only ever saw concrete
+# question -> detailed-answer pairs, so an under-specified request like "help
+# me find info about TB" is out-of-distribution and it free-associates into a
+# generic essay. Verified via diagnostic probing: reliably catches requests
+# with literally no topic beyond "TB"; does NOT reliably catch broader asks
+# like "tell me about tuberculosis" (model still writes an essay there) -
+# fixing that fully would require retraining with examples of this behavior,
+# not something to patch at inference time.
+FORMAT_REMINDER = (
+    "(Format this answer in Markdown: short paragraphs, a bullet list for "
+    "multiple options/steps/causes, **bold** for key terms, ## headers only "
+    "if it's a long multi-part answer. If the message above is vague or doesn't name a "
+    "specific, answerable question - e.g. it just names a broad topic, or asks for help "
+    "without saying what about - do NOT write a generic overview essay. Instead, respond "
+    "with 1-2 short sentences asking what specifically they want to know, and optionally "
+    "name 2-3 concrete angles they could pick from.)"
+)
+
+
 _vectorstore: Optional[Chroma] = None
 _model = None
 _tokenizer = None
@@ -181,18 +204,10 @@ def query_rag(question: str, model_path: str, tokenizer_path: Optional[str] = No
     retrieved = retrieve(question, top_k=top_k)
     context = build_context(retrieved)
 
-    # Repeated right before generation starts (not just in the system prompt):
-    # the SFT style otherwise dominates and the model falls back to one dense
-    # paragraph regardless of the system prompt's formatting instructions.
-    format_reminder = (
-        "(Format this answer in Markdown: short paragraphs, a bullet list for "
-        "multiple options/steps/causes, **bold** for key terms, ## headers only "
-        "if it's a long multi-part answer.)"
-    )
     user_content = (
-        f"Context:\n{context}\n\nQuestion: {question}\n\n{format_reminder}\n\nAnswer:"
+        f"Context:\n{context}\n\nQuestion: {question}\n\n{FORMAT_REMINDER}\n\nAnswer:"
         if context else
-        f"Question: {question}\n\n{format_reminder}\n\nAnswer:"
+        f"Question: {question}\n\n{FORMAT_REMINDER}\n\nAnswer:"
     )
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -232,14 +247,9 @@ def query_direct(question: str, model_path: str, tokenizer_path: Optional[str] =
 
     model, tokenizer = load_generator(model_path, tokenizer_path, adapter_path)
 
-    format_reminder = (
-        "(Format this answer in Markdown: short paragraphs, a bullet list for "
-        "multiple options/steps/causes, **bold** for key terms, ## headers only "
-        "if it's a long multi-part answer.)"
-    )
     messages = [
         {"role": "system", "content": DIRECT_SYSTEM_PROMPT},
-        {"role": "user", "content": f"Question: {question}\n\n{format_reminder}\n\nAnswer:"},
+        {"role": "user", "content": f"Question: {question}\n\n{FORMAT_REMINDER}\n\nAnswer:"},
     ]
     prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
