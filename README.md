@@ -1,9 +1,18 @@
+<div align="center">
+
 # Llama-3.1-TB
+
 ### An AI Research Assistant for Tuberculosis Scientists
 
-> *"A time when 'just google it' is no longer enough."*
->
-> — Gusenbauer, *The Age of Abundant Scholarly Information and Its Synthesis* (2021) [1]
+<br>
+
+*"A time when 'just google it' is no longer enough."*
+
+— Gusenbauer, *The Age of Abundant Scholarly Information and Its Synthesis* (2021) [1]
+
+</div>
+
+---
 
 ## The problem: Too much research, not enough connection
 
@@ -13,49 +22,88 @@ At the same time, TB is an extensively studied disease. More than **263,000 TB-r
 
 The problem isn't a lack of research. It's that relevant knowledge is scattered across thousands of papers and specialized resources [6], making it difficult to find, compare, and connect findings.
 
-This is the problem **Llama-3.1-TB** aims to address.
+**This is the problem Llama-3.1-TB aims to address.**
+
+<br>
 
 ## The solution: A research assistant built for TB
 
-Llama-3.1-TB is an 8-billion-parameter language model fine-tuned on tuberculosis research literature.
+**Llama-3.1-TB** is an 8-billion-parameter language model fine-tuned on tuberculosis research literature.
 
 Instead of working through papers one by one, researchers can ask questions in natural language and use the assistant to:
 
-- **Interpret experimental results** and explore possible biological explanations.
-- **Critically assess methods** and identify potential limitations.
-- **Understand biological mechanisms** involving TB genes, proteins, and pathways.
-- **Explore hypotheses** and possible directions for further experiments.
+| Research capability | Description |
+|:---|:---|
+| **Interpret experimental results** | Explore possible biological explanations. |
+| **Critically assess methods** | Identify potential limitations. |
+| **Understand biological mechanisms** | Involving TB genes, proteins, and pathways. |
+| **Explore hypotheses** | Explore possible directions for further experiments. |
 
 The aim is not to replace scientific judgment or literature review, but to make it easier to work through complex research questions.
+
+<br>
 
 ## How it works
 
 The model was developed in three main stages:
 
-**1. Literature collection**
+```mermaid
+flowchart LR
+    A["1. Literature Collection<br/>27,437 papers"] --> B["2. Instruction Generation<br/>100,536 instruction–response pairs"]
+    B --> C["3. Fine-Tuning<br/>Llama-3.1-8B + QLoRA"]
+
+    style A fill:#e8f4f3,stroke:#39877f,color:#173c39
+    style B fill:#e8f4f3,stroke:#39877f,color:#173c39
+    style C fill:#d1eae6,stroke:#24766e,color:#173c39
+```
+
+### 1. Literature collection
 
 27,437 TB research papers were collected and processed into 489,423 text chunks (approximately 173 million tokens).
 
-**2. Instruction generation**
+### 2. Instruction generation
 
 TB experts at the Jinich Lab created 50 seed examples of realistic scientific questions and expert responses. Following the BioInstruct approach [9], these were used to guide Llama-3.3-70B in generating 100,536 literature-grounded instruction–response pairs, which formed the training dataset for fine-tuning.
 
-**3. Fine-tuning**
+### 3. Fine-tuning
 
 Llama-3.1-8B-Instruct [7] was fine-tuned using QLoRA [8] to produce a TB-specialized model that can run locally on a single GPU.
 
 I also explored continued pretraining [10, 12] and several retrieval-augmented generation (RAG) approaches [11, 13], including replications of published recipes, to compare different methods of domain adaptation.
 
+<br>
+
 ## Evaluation: Does specialization improve performance?
 
 The models were evaluated on **960 questions from 200 held-out TB research papers**, using an explanation-based multiple-choice benchmark.
 
+### Model performance
+
+```mermaid
+xychart-beta
+    x-axis ["Base Llama", "Llama-3.1-TB", "CPT + SFT", "SFT + RAG"]
+    y-axis "Accuracy (%)" 0 --> 100
+    bar [77.0, 80.6, 79.3, 71.6]
+    bar [65.8, 71.0, 69.0, 57.5]
+```
+
+*The first bar series represents accuracy; the second represents penalized accuracy.*
+
+<details>
+<summary><strong>View detailed benchmark results</strong></summary>
+
+<br>
+
 | Model | Accuracy | Penalized accuracy |
-|---|---:|---:|
+|:---|---:|---:|
 | Base Llama-3.1-8B | 77.0% | 65.8% |
 | **Llama-3.1-TB** | **80.6%** | **71.0%** |
 | Continued pretraining + SFT | 79.3% | 69.0% |
 | SFT + RAG | 71.6% | 57.5% |
+
+</details>
+
+### Key findings
 
 Compared with the base model, **Llama-3.1-TB improved answer accuracy by 3.6 percentage points and penalized accuracy by 5.2 percentage points** (p = 0.0057 for penalized accuracy).
 
@@ -63,7 +111,11 @@ It also showed statistically significant improvements in factual accuracy, coher
 
 Interestingly, the simpler supervised fine-tuning approach performed better on this benchmark than the more complex methods I tested. Continued pretraining offered no clear additional benefit, while RAG reduced performance on the primary reasoning benchmark.
 
+### Evaluation limitations
+
 The evaluation used synthetic questions and an automated LLM judge (GPT-4o), so testing with TB researchers on real research tasks remains an important next step.
+
+<br>
 
 ## Why it matters
 
@@ -73,13 +125,16 @@ The results suggest that fine-tuning on literature-grounded scientific instructi
 
 The longer-term goal is to develop a practical research tool that helps scientists make sense of existing findings and explore new questions.
 
-**[View the research on GitHub](https://github.com/sedak326/tuberculosis_agent)**
+<br>
 
 ---
 
 ## References
 
-### Scientific motivation
+<details>
+<summary><strong>Scientific motivation</strong></summary>
+
+<br>
 
 1. Gusenbauer M. The age of abundant scholarly information and its synthesis: A time when "just google it" is no longer enough. *Research Synthesis Methods*. 2021;12(6):684–691. https://doi.org/10.1002/jrsm.1520
 
@@ -93,7 +148,12 @@ The longer-term goal is to develop a practical research tool that helps scientis
 
 6. Jinich A, Zaveri A, DeJesus MA, Spencer A, Almada-Monter R, Flores-Bautista E, et al. The *Mycobacterium tuberculosis* Transposon Sequencing Database (MtbTnDB): A Large-Scale Guide to Genetic Conditional Essentiality. *Molecular Microbiology*. 2025;124(1):91–101. https://doi.org/10.1111/mmi.15370
 
-### Methods and related work
+</details>
+
+<details>
+<summary><strong>Methods and related work</strong></summary>
+
+<br>
 
 7. Grattafiori A, Dubey A, Jauhri A, et al. The Llama 3 Herd of Models. 2024. https://arxiv.org/abs/2407.21783
 
@@ -109,10 +169,18 @@ The longer-term goal is to develop a practical research tool that helps scientis
 
 13. Bal DP, Puhan S. Benchmarking Retrieval Strategies for Biomedical Retrieval-Augmented Generation: A Controlled Empirical Study. 2026. https://arxiv.org/abs/2605.02520
 
+</details>
+
+<br>
+
 ---
+
+<div align="center">
 
 **Seda Kavlak**
 
 M.Sc. Bioinformatics, University of Potsdam
 
 Research conducted at the Jinich Lab, UC San Diego, advised by Prof. Adrian Jinich.
+
+</div>
